@@ -1,8 +1,15 @@
 #!/bin/bash
 
-if [ -d "$HOME/hpc_python_env" ]; then
-    echo "Removing Python virtual environment..."
-    rm -rf $HOME/hpc_python_env
-else
-    echo "No Python virtual environment found."
-fi
+echo "Removing Python installation..."
+
+# Remove installed directory
+rm -rf $HOME/hpc/python
+
+# Remove extracted source and tar file
+rm -rf $HOME/hpc_sources/Python-3.12.1
+rm -f  $HOME/hpc_sources/Python-3.12.1.tar.xz
+
+# Remove PATH entry
+sed -i '/hpc\/python/d' $HOME/.bashrc
+
+echo "Python completely removed."

@@ -1,26 +1,28 @@
 #!/bin/bash
 
-echo "===== PYTHON SETUP ====="
+set -e
 
-if command -v python3 &> /dev/null; then
-    echo "Python already installed."
-else
-    if [ "$PKG_MANAGER" == "apt" ]; then
-        sudo apt install -y python3 python3-pip python3-venv
-    elif [ "$PKG_MANAGER" == "dnf" ]; then
-        sudo dnf install -y python3 python3-pip
-    else
-        echo "Unsupported package manager."
-        exit 1
-    fi
-fi
+INSTALL_DIR=$HOME/hpc/python
+SRC_DIR=$HOME/hpc_sources
 
-# Create virtual environment
-if [ ! -d "$HOME/hpc_python_env" ]; then
-    python3 -m venv $HOME/hpc_python_env
-    echo "Virtual environment created."
-else
-    echo "Virtual environment already exists."
-fi
+mkdir -p $SRC_DIR
+mkdir -p $INSTALL_DIR
+cd $SRC_DIR
 
-echo "Python setup complete."
+echo "Downloading Python..."
+wget -nc https://www.python.org/ftp/python/3.12.1/Python-3.12.1.tar.xz
+
+echo "Extracting Python..."
+tar -xf Python-3.12.1.tar.xz
+cd Python-3.12.1
+
+echo "Configuring Python..."
+./configure --prefix=$INSTALL_DIR --enable-optimizations
+
+echo "Building Python..."
+make -j$(nproc)
+
+echo "Installing Python..."
+make install
+
+echo "Python Installation Completed!"

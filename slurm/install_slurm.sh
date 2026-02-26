@@ -1,21 +1,43 @@
 #!/bin/bash
+set -e
 
 echo "===== INSTALLING SLURM & MUNGE ====="
 
-if [ "$PKG_MANAGER" == "apt" ]; then
+# Detect package manager automatically
+if command -v apt &>/dev/null; then
     echo "Detected Debian/Ubuntu system"
+    apt update
+    apt install -y slurm-wlm munge mariadb-server
 
-    sudo apt update
-    sudo apt install -y slurm-wlm munge
+elif command -v dnf &>/dev/null; then
+    echo "Detected Fedora/RHEL system"
 
-elif [ "$PKG_MANAGER" == "dnf" ]; then
-    echo "Detected RHEL/Fedora system"
-
-    sudo dnf install -y slurm slurm-slurmd slurm-slurmctld munge munge-libs munge-devel
+    # Disable weak deps to avoid multilib conflicts
+    sudo dnf install -y \
+        --setopt=install_weak_deps=False \
+        munge \
+        slurm \
+        slurm-slurmd \
+        slurm-slurmctld || {
+            echo "DNF installation failed."
+            exit 1
+        }
 
 else
     echo "Unsupported package manager."
     exit 1
 fi
 
-echo "Installation complete."
+# Ensure slurm user exists
+if ! id slurm &>/dev/null; then
+    echo "Creating slurm user..."
+    useradd -r -M -s $(which nologin) slurm
+fi
+
+# Ensure munge user exists
+if ! id munge &>/dev/null; then
+    echo "Creating munge user..."
+    useradd -r -M -s $(which nologin) munge
+fi
+
+echo "===== INSTALLATION COMPLETE ====="

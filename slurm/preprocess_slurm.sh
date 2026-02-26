@@ -1,28 +1,37 @@
 #!/bin/bash
 
-echo "Checking Slurm status..."
+echo "===== CHECKING SLURM STATUS ====="
 
-# Check if Slurm command exists
-if command -v sinfo &> /dev/null; then
+SLURM_STATUS="not_installed"
+
+if command -v sinfo &>/dev/null; then
     echo "Slurm command found."
 
-    # Check if slurmctld service exists
     if systemctl list-unit-files | grep -q slurmctld; then
-        echo "Slurm service exists."
+        echo "Slurm service found."
 
-        # Check if running
-        if systemctl is-active --quiet slurmctld; then
-            echo "Slurm is running and properly installed."
-            export SLURM_STATUS="installed"
+        if ! systemctl is-active --quiet munge; then
+            echo "Munge not running."
+            SLURM_STATUS="needs_configuration"
+
+        elif systemctl is-active --quiet slurmctld; then
+            echo "Slurm is running properly."
+            SLURM_STATUS="installed"
+
         else
-            echo "Slurm installed but not running."
-            export SLURM_STATUS="needs_configuration"
+            echo "Slurm installed but not active."
+            SLURM_STATUS="needs_configuration"
         fi
+
     else
         echo "Slurm partially installed."
-        export SLURM_STATUS="needs_configuration"
+        SLURM_STATUS="needs_configuration"
     fi
+
 else
     echo "Slurm not installed."
-    export SLURM_STATUS="not_installed"
+    SLURM_STATUS="not_installed"
 fi
+
+export SLURM_STATUS
+echo "Detected SLURM_STATUS=$SLURM_STATUS"

@@ -1,58 +1,123 @@
 #!/bin/bash
+set -e
 
 echo "===== CONFIGURING SLURM ====="
 
-# Enable & Start Munge
-sudo systemctl enable munge
-sudo systemctl start munge
-
-# Ensure munge key exists
-if [ ! -f /etc/munge/munge.key ]; then
-    echo "Generating Munge key..."
-    sudo /usr/sbin/create-munge-key
-    sudo chown munge:munge /etc/munge/munge.key
-    sudo chmod 400 /etc/munge/munge.key
-    sudo systemctl restart munge
+if [[ $EUID -ne 0 ]]; then
+    echo "Run as root (sudo ./master_setup.sh)"
+    exit 1
 fi
-
-# Create required directories
-sudo mkdir -p /var/spool/slurm
-sudo mkdir -p /var/log/slurm
-
-sudo chown -R slurm:slurm /var/spool/slurm
-sudo chown -R slurm:slurm /var/log/slurm
 
 HOSTNAME=$(hostname)
+CPUS=$(nproc)
 
-# Create slurm.conf if not exists
-if [ ! -f /etc/slurm/slurm.conf ]; then
-    echo "Creating slurm.conf..."
+echo "Host: $HOSTNAME"
+echo "CPUs: $CPUS"
 
-    sudo mkdir -p /etc/slurm
 
-    sudo tee /etc/slurm/slurm.conf > /dev/null <<EOF
-ClusterName=localcluster
-ControlMachine=$HOSTNAME
-SlurmUser=slurm
-SlurmdUser=root
-StateSaveLocation=/var/spool/slurm
-SlurmdSpoolDir=/var/spool/slurm
-AuthType=auth/munge
-NodeName=$HOSTNAME CPUs=2 State=UNKNOWN
-PartitionName=debug Nodes=$HOSTNAME Default=YES MaxTime=INFINITE State=UP
-EOF
+if ! id munge &>/dev/null; then
+    echo "Creating munge user..."
+    useradd -r -M -s /sbin/nologin munge
 fi
 
-# Enable and start services
-sudo systemctl enable slurmctld
-sudo systemctl enable slurmd
+# Slurm user (Fedora does NOT auto-create)
+if ! id slurm &>/dev/null; then
+    echo "Creating slurm user..."
+    useradd -r -M -s /sbin/nologin slurm
+fi
 
-sudo systemctl restart slurmctld
-sudo systemctl restart slurmd
+
+echo "Configuring Munge..."
+
+mkdir -p /etc/munge
+mkdir -p /var/lib/munge
+mkdir -p /var/log/munge
+mkdir -p /run/munge
+
+if [ ! -f /etc/munge/munge.key ]; then
+    echo "Generating munge key..."
+    if [ -x /usr/sbin/create-munge-key ]; then
+        /usr/sbin/create-munge-key
+    else
+        dd if=/dev/urandom bs=1 count=1024 of=/etc/munge/munge.key
+    fi
+fi
+
+chown -R munge:munge /etc/munge
+chown -R munge:munge /var/lib/munge
+chown -R munge:munge /var/log/munge
+chown munge:munge /run/munge
+
+chmod 0700 /etc/munge
+chmod 0700 /var/lib/munge
+chmod 0700 /var/log/munge
+chmod 0755 /run/munge
+chmod 0400 /etc/munge/munge.key
+
+systemctl daemon-reload
+systemctl enable munge
+systemctl restart munge
+
+if ! systemctl is-active --quiet munge; then
+    echo "Munge failed to start."
+    journalctl -xeu munge | tail -20
+    exit 1
+fi
+
+echo "Munge running successfully."
+
+
+
+mkdir -p /var/spool/slurmctld
+mkdir -p /var/spool/slurmd
+
+chown -R slurm:slurm /var/spool/slurmctld
+chown -R slurm:slurm /var/spool/slurmd
+
+
+
+echo "Creating slurm.conf..."
+
+mkdir -p /etc/slurm
+
+cat > /etc/slurm/slurm.conf <<EOF
+ClusterName=localcluster
+SlurmctldHost=$HOSTNAME
+SlurmUser=slurm
+SlurmdUser=root
+StateSaveLocation=/var/spool/slurmctld
+SlurmdSpoolDir=/var/spool/slurmd
+AuthType=auth/munge
+ProctrackType=proctrack/cgroup
+TaskPlugin=task/affinity
+SchedulerType=sched/backfill
+SelectType=select/cons_tres
+
+NodeName=$HOSTNAME CPUs=$CPUS State=UNKNOWN
+PartitionName=debug Nodes=$HOSTNAME Default=YES MaxTime=INFINITE State=UP
+EOF
+
+
+systemctl daemon-reload
+systemctl enable slurmctld
+systemctl enable slurmd
+
+systemctl restart slurmctld
+systemctl restart slurmd
 
 sleep 3
 
+
 echo "===== VERIFYING SLURM ====="
-sinfo || echo "Slurm may need manual verification."
+
+if systemctl is-active --quiet slurmctld && systemctl is-active --quiet slurmd; then
+    echo "Slurm services are running."
+else
+    echo "Slurm services failed."
+    journalctl -xeu slurmctld | tail -20
+    exit 1
+fi
+
+sinfo || echo "Slurm running but partition not responding."
 
 echo "===== CONFIGURATION COMPLETE ====="

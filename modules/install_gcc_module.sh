@@ -15,6 +15,14 @@ wget -nc https://ftp.gnu.org/gnu/gcc/gcc-13.2.0/gcc-13.2.0.tar.gz
 echo "Extracting GCC..."
 tar -xf gcc-13.2.0.tar.gz
 cd gcc-13.2.0
+
+# Optional but recommended: download prerequisites
+if [ ! -f "contrib/download_prerequisites" ]; then
+    echo "Prerequisite script not found"
+else
+    ./contrib/download_prerequisites
+fi
+
 mkdir -p build
 cd build
 
@@ -27,4 +35,11 @@ make -j$(nproc)
 echo "Installing GCC..."
 make install
 
+# ✅ Add GCC to PATH (only if not already added)
+if ! grep -q 'hpc/gcc/bin' ~/.bashrc; then
+    echo 'export PATH="$HOME/hpc/gcc/bin:$PATH"' >> ~/.bashrc
+fi
+
 echo "GCC Installation Completed!"
+echo "Run: source ~/.bashrc"
+echo "Then check with: gcc --version"

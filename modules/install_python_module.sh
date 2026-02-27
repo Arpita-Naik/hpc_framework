@@ -25,4 +25,10 @@ make -j$(nproc)
 echo "Installing Python..."
 make install
 
+if ! grep -q 'hpc/python/bin' ~/.bashrc; then
+    echo 'export PATH="$HOME/hpc/python/bin:$PATH"' >> ~/.bashrc
+fi
+
 echo "Python Installation Completed!"
+echo "Run: source ~/.bashrc"
+echo "Then check with: python3 --version"

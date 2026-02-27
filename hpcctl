@@ -1,0 +1,94 @@
+#!/bin/bash
+
+BASE_DIR="/mnt/c/Users/infobell/Desktop/NODE"
+
+show_help() {
+    echo "HPC Control Framework"
+    echo ""
+    echo "Install Modules:"
+    echo "  hpcctl --module gcc"
+    echo "  hpcctl --module python"
+    echo "  hpcctl --module openmpi"
+    echo ""
+    echo "Slurm:"
+    echo "  hpcctl --slurm"
+    echo ""
+    echo "Cleanup:"
+    echo "  hpcctl --cleanup gcc"
+    echo "  hpcctl --cleanup python"
+    echo "  hpcctl --cleanup openmpi"
+    echo "  hpcctl --cleanup slurm"
+    echo "  hpcctl --cleanup all"
+    echo ""
+    echo "Other:"
+    echo "  hpcctl --check"
+    echo "  hpcctl --help"
+}
+
+run_slurm() {
+    echo "Running full Slurm setup..."
+    bash "$BASE_DIR/slurm/preprocess_slurm.sh"
+    bash "$BASE_DIR/slurm/install_slurm.sh"
+    bash "$BASE_DIR/slurm/configure_slurm.sh"
+}
+
+run_module() {
+    case "$2" in
+        gcc)
+            bash "$BASE_DIR/modules/install_gcc_module.sh"
+            ;;
+        python)
+            bash "$BASE_DIR/modules/install_python_module.sh"
+            ;;
+        openmpi)
+            bash "$BASE_DIR/modules/install_openmpi_module.sh"
+            ;;
+        *)
+            echo "Unknown module. Use: gcc | python | openmpi"
+            ;;
+    esac
+}
+
+run_cleanup() {
+    case "$2" in
+        gcc)
+            bash "$BASE_DIR/cleanup/remove_gcc.sh"
+            ;;
+        python)
+            bash "$BASE_DIR/cleanup/remove_python_env.sh"
+            ;;
+        openmpi)
+            bash "$BASE_DIR/cleanup/remove_openmpi.sh"
+            ;;
+        slurm)
+            bash "$BASE_DIR/cleanup/remove_slurm.sh"
+            ;;
+        all)
+            bash "$BASE_DIR/cleanup/master_cleanup.sh"
+            ;;
+        *)
+            echo "Unknown cleanup option."
+            ;;
+    esac
+}
+
+case "$1" in
+    --slurm)
+        run_slurm
+        ;;
+    --module)
+        run_module "$@"
+        ;;
+    --cleanup)
+        run_cleanup "$@"
+        ;;
+    --check)
+        bash "$BASE_DIR/system_check/detect_os.sh"
+        ;;
+    --help)
+        show_help
+        ;;
+    *)
+        show_help
+        ;;
+esac

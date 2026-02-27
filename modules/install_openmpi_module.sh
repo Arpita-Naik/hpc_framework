@@ -1,18 +1,5 @@
 #!/bin/bash
 
-echo "===== OPENMPI SETUP ====="
-
-if command -v mpirun &> /dev/null; then
-    echo "OpenMPI already installed."
-    exit 0
-fi
-
-if [ "$PKG_MANAGER" == "apt" ]; then
-    sudo apt install -y openmpi-bin libopenmpi-dev
-elif [ "$PKG_MANAGER" == "dnf" ]; then
-    sudo dnf install -y openmpi openmpi-devel
-else#!/bin/bash
-
 set -e
 
 INSTALL_DIR=$HOME/hpc/openmpi
@@ -38,9 +25,12 @@ make -j$(nproc)
 echo "Installing OpenMPI..."
 make install
 
-echo "OpenMPI Installation Completed!"
-    echo "Unsupported package manager."
-    exit 1
+# ✅ Add OpenMPI to PATH (if not already added)
+if ! grep -q 'hpc/openmpi/bin' ~/.bashrc; then
+    echo 'export PATH="$HOME/hpc/openmpi/bin:$PATH"' >> ~/.bashrc
+    echo 'export LD_LIBRARY_PATH="$HOME/hpc/openmpi/lib:$LD_LIBRARY_PATH"' >> ~/.bashrc
 fi
 
-echo "OpenMPI installation complete."
+echo "OpenMPI Installation Completed!"
+echo "Run: source ~/.bashrc"
+echo "Then check with: mpirun --version"
